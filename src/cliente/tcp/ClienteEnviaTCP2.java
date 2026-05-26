@@ -3,109 +3,99 @@ package cliente.tcp;
 import datos.EntradaSalida;
 import java.net.*;
 import java.io.*;
+import javax.swing.JFileChooser; 
 
 public class ClienteEnviaTCP2 extends Thread {
-    protected Socket socket; //socket cliente
+    protected Socket socket; 
     protected final int PUERTO_SERVER;
     protected final String SERVER;
 
-    public ClienteEnviaTCP2(String servidor,int puertoS) throws Exception {
+    public ClienteEnviaTCP2(String servidor, int puertoS) throws Exception {
         PUERTO_SERVER = puertoS;
         SERVER = servidor;
-
-        // Se hace una invocación a primitva CONNECT
-        socket = new Socket(SERVER,PUERTO_SERVER);
+        socket = new Socket(SERVER, PUERTO_SERVER);
     }
 
     @Override
     public void run() {
         DataOutputStream out = null;
-
         try {
-            EntradaSalida.mostrarMensaje( "Cliente conectado con servidor "+ socket.getInetAddress()
-                                            + ":" + socket.getPort() + "\n");
+            EntradaSalida.mostrarMensaje("Cliente conectado con servidor " + socket.getInetAddress()
+                    + ":" + socket.getPort() + "\n");
 
-            // Crea flujo de salida de red al socket
-            // MONY/FER: Este es como si fuera el tubo por donde vamos a aventar los bytes del 
-            // archivo a la red.
             out = new DataOutputStream(socket.getOutputStream());
 
-            // Invocamos a método que envía datos por la red 
+            // MONY/FER: Aquí arranca la selección visual del archivo
             enviaArchivo(out);
 
-        }
-        catch (Exception e) {
-            System.err.println("Error cliente: "+ e.getMessage());
-        }
-        finally {
-            // cerrar recursos
+        } catch (Exception e) {
+            System.err.println("Error cliente: " + e.getMessage());
+        } finally {
             try {
-                if (out != null) //flujos de socket
-                    out.close();
-
-                if (socket != null && !socket.isClosed()) { //cerramos socket
-                    socket.close();
-                }
-            }
-            catch (Exception e) {
-                System.err.println("Error cerrando recursos: "+ e.getMessage());
+                if (out != null) out.close();
+                if (socket != null && !socket.isClosed()) socket.close();
+            } catch (Exception e) {
+                System.err.println("Error cerrando recursos: " + e.getMessage());
             }
         }
     }
 
-    // MONY/FER: Transformamos el 'enviaMensaje' en 'enviaArchivo'. 
-    // Aquí es donde vamos calcular la latencia y la velocidad.
     private void enviaArchivo(DataOutputStream out) throws Exception {
+        // 1. Abrimos la ventanita para elegir el archivo
+        JFileChooser selector = new JFileChooser();
+        selector.setDialogTitle("Selecciona el archivo para enviar");
+        int resultado = selector.showOpenDialog(null);
 
-        // 1. Apuntamos al archivo físico que pusimos en la carpeta
-        File archivo = new File("src/archivos_enviados/besties.jpeg"); 
+        // 2. Al dar click en abrir
+        if (resultado == JFileChooser.APPROVE_OPTION) {
+            File archivo = selector.getSelectedFile(); 
 
-        if (!archivo.exists()) {
-            EntradaSalida.mostrarMensaje("❌ ERROR: No se encontró el archivo.\n");
-            return; // Si no hay foto, abortamos la misión
+            // 3. Mandamos el nombre y el peso al servidor
+            out.writeUTF(archivo.getName());
+            out.writeLong(archivo.length());
+
+            FileInputStream fis = new FileInputStream(archivo);
+            byte[] buffer = new byte[4096];
+            int bytesLeidos;
+            
+            long totalBytes = archivo.length();
+            long bytesEnviados = 0;
+            
+            //MONY/FER: Arrancamos el cronómetro justo antes de empezar a mover bytes
+            long tiempoInicio = System.currentTimeMillis();
+            
+            EntradaSalida.mostrarMensaje("🚀 Iniciando envío de: " + archivo.getName() + " (" + totalBytes + " bytes)...\n");
+
+            while ((bytesLeidos = fis.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesLeidos);
+                bytesEnviados += bytesLeidos;
+
+                // --- CÁLCULOS DINÁMICOS 
+                long tiempoActual = System.currentTimeMillis();
+                long tiempoTranscurrido = tiempoActual - tiempoInicio;
+                
+                if (tiempoTranscurrido > 0) {
+                    double velocidadBps = (bytesEnviados * 8.0) / (tiempoTranscurrido / 1000.0);
+                    long bytesRestantes = totalBytes - bytesEnviados;
+                    double tiempoRestanteSeg = (bytesRestantes * 8.0) / velocidadBps;
+
+                    // MONY/FER: Imprimimos progreso cada 10% para no saturar la consola
+                    if (bytesEnviados % (totalBytes / 10 + 1) == 0) { 
+                        EntradaSalida.mostrarMensaje(
+                            String.format(">> Progreso: %.1f%% | Transcurrido: %.1fs | Restante est.: %.1fs | Vel: %.2f bps\n", 
+                            (bytesEnviados * 100.0 / totalBytes), 
+                            (tiempoTranscurrido / 1000.0), 
+                            tiempoRestanteSeg, 
+                            velocidadBps)
+                        );
+                    }
+                }
+            }
+            out.flush();
+            fis.close();
+            EntradaSalida.mostrarMensaje("¡Transferencia completada!\n");
+        } else {
+            EntradaSalida.mostrarMensaje("Envío cancelado por el usuario.\n");
         }
-
-        // 2. Le decimos al servidor cómo se llama el archivo y cuánto pesa para que se prepare
-        out.writeUTF(archivo.getName());  // enviar UTF por el socket (Nombre)
-        out.writeLong(archivo.length());  // Enviamos el peso total
-
-        // 3. Preparamos la lectura del disco duro
-        FileInputStream fis = new FileInputStream(archivo);
-        byte[] buffer = new byte[4096]; // Este es el que transporta bytes de 4 en 4 KB
-        int bytesLeidos;
-
-        EntradaSalida.mostrarMensaje("Enviando archivo \"" + archivo.getName() + "\"...\n");
-
-        // --- PUNTO 3 DEL PROYECTO: Cálculooos ---
-        //MONY/FER: Justo antes de que salga el primer byte, tomamos la hora exacta en milisegundos
-        long tiempoInicio = System.currentTimeMillis();
-
-        // 4. El ciclo que lee la foto de la compu y la empuja al socket
-        while ((bytesLeidos = fis.read(buffer)) != -1) {
-            out.write(buffer, 0, bytesLeidos);
-        }
-        
-        // forzar envío
-        out.flush();
-
-        //MONY/FER: Terminó de enviarse y Tomamos la hora exacta en la que terminó
-        long tiempoFin = System.currentTimeMillis();
-        fis.close(); // Cerramos la lectura del disco
-
-        // 5. Calculamos la Latencia (Tiempo total que tardó el viaje)
-        long latenciaMs = tiempoFin - tiempoInicio;
-        double latenciaSeg = latenciaMs / 1000.0; // Lo pasamos a segundos
-        
-        // Trampita por si la compu es muy rápida y da 0 (para que no explote la división)
-        if (latenciaSeg == 0) latenciaSeg = 0.001; 
-
-        // 6. Calculamos la Tasa de Transferencia (bps = bits por segundo)
-        // La fórmula es: (Bytes del archivo * 8 para hacerlo bits) / Segundos que tardó
-        double bits = archivo.length() * 8;
-        double bps = bits / latenciaSeg;
-
-        EntradaSalida.mostrarMensaje("¡Archivo enviado con éxito jiji!\n");
-        EntradaSalida.mostrarMensaje("Latencia (Tiempo total): " + latenciaSeg + " segundos\n");
-        EntradaSalida.mostrarMensaje("Tasa de transferencia: " + String.format("%.2f", bps) + " bps\n\n");
     }
 }

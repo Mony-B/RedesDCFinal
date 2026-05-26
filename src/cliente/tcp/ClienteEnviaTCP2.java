@@ -97,7 +97,7 @@ public class ClienteEnviaTCP2 extends Thread {
 
                     // Imprime los calculos dinamicos en cada vuelta del ciclo
                     EntradaSalida.mostrarMensaje(
-                        String.format(">> Progreso: %.1f%% | Transcurrido: %.3fs | Restante est.: %.1fs | Vel: %.2f bps\n", 
+                        String.format(">> Progreso: %.1f%% \n Tiempo Transcurrido: %.3fs \n Tiempo Restante estimado: %.1fs \n Velocidad: %.2f bps\n", 
                         progreso, 
                         (tiempoTranscurridoMs / 1000.0), 
                         tiempoRestanteSeg, 
@@ -105,7 +105,7 @@ public class ClienteEnviaTCP2 extends Thread {
                     );
                 }
             }
-            // Forzamos que se vacie el tubo de red por si quedo algun byte atorado
+            // Forzamos que se vacie el tubo de red por si quedó algúuun byte atorado
             out.flush();
             
             // Tomamos el tiempo final justo cuando termina el ciclo
@@ -127,7 +127,7 @@ public class ClienteEnviaTCP2 extends Thread {
             EntradaSalida.mostrarMensaje("Velocidad promedio: " + String.format("%.2f", bpsFinal) + " bps\n\n");
             
         } else {
-            // Si se cerro la ventanita sin elegir nada
+            // Si se cerró la ventanita sin elegir nada
             EntradaSalida.mostrarMensaje("Envio cancelado por el usuario.\n");
         }
     }

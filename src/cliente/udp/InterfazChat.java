@@ -20,7 +20,7 @@ public class InterfazChat extends JFrame {
     private File archivoSeleccionado;
 
     // --- CONFIGURACION DE RED ---
-    private final String SERVER_IP = "26.198.149.216"; 
+    private final String SERVER_IP = "26.190.167.15"; 
     private final int SERVER_PUERTO = 50000;       
 
     private DatagramSocket socketUDP;
@@ -98,12 +98,14 @@ public class InterfazChat extends JFrame {
 
     private void inicializarConexionRed() {
         try {
-            socketUDP = new DatagramSocket();
+            //Le agregamos SERVER_PUERTO entre los paréntesis
+            socketUDP = new DatagramSocket(SERVER_PUERTO);
+            
             hiloEscucha = new ClienteEscuchaUDP2(socketUDP, this.areaChat);
             hiloEscucha.start();
             areaChat.append("[Sistema]: Chat activo. Destino -> " + SERVER_IP + ":" + SERVER_PUERTO + "\n");
         } catch (Exception e) {
-            areaChat.append("[Error Red]: No se pudo inicializar los sockets: " + e.getMessage() + "\n");
+            areaChat.append("[Error Red]: El puerto ya está en uso. Cierra las terminales negras.\n");
         }
     }
 

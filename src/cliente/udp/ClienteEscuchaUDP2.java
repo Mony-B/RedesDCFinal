@@ -2,7 +2,7 @@ package cliente.udp;
 
 import datos.EntradaSalida;
 import datos.Mensaje;
-import javax.swing.JTextArea; // <-- AGREGAMOS ESTO
+import javax.swing.JTextArea; 
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
@@ -12,43 +12,40 @@ public class ClienteEscuchaUDP2 extends Thread {
     private static final int MAX_BUFFER = 1024;
     private volatile boolean ejecutando = true; 
     
-    // Referencia al área de texto del Chat UI
-    private JTextArea areaChatUI; // <-- AGREGAMOS ESTO
+    private JTextArea areaChatUI; 
 
-    // Actualizamos el constructor para recibir el JTextArea
     public ClienteEscuchaUDP2(DatagramSocket socketNuevo, JTextArea areaChatUI) {
         socket = socketNuevo;
         PUERTO_CLIENTE = socket.getLocalPort(); 
-        this.areaChatUI = areaChatUI; // <-- GUARDAMOS LA REFERENCIA
+        this.areaChatUI = areaChatUI; 
     }
 
     @Override 
     public void run() {
         try { 
-            mostrarEnChat("Cliente UDP escuchando en puerto " + PUERTO_CLIENTE + "\n");
+            mostrarEnChat("[Sistema]: Escuchando mensajes UDP en el puerto " + PUERTO_CLIENTE + "\n");
 
             while (ejecutando) {
                 try { 
                     Mensaje mensajeObj = recibeMensaje();
-                    String mensaje = mensajeObj.getMensaje();
+                    
+                    // Si el mensaje viene bien, lo mostramos
+                    if (mensajeObj != null && mensajeObj.getMensaje() != null) {
+                        String mensaje = mensajeObj.getMensaje();
 
-                    // Mostrar mensaje recibido en la interfaz gráfica
-                    mostrarEnChat("Servidor [" + mensajeObj.getPuertoServidor() + "]: " + mensaje + "\n");
-
-                    if (mensaje.equalsIgnoreCase("fin")) {
-                        mostrarEnChat("Servidor finalizó comunicación\n");
-                        ejecutando = false;
+                        if (mensaje.equalsIgnoreCase("fin")) {
+                            mostrarEnChat("[Sistema]: El otro usuario se desconectó.\n");
+                            ejecutando = false;
+                        } else if (!mensaje.startsWith("ERROR")) {
+                            // Imprimimos en la interfaz gráfica
+                            mostrarEnChat("Fer: " + mensaje + "\n");
+                        }
                     }
                 }
-                catch (SocketTimeoutException e) {
-                    // Opcional: no saturar la UI con "esperando mensajes"
-                }
+                catch (SocketTimeoutException e) { }
                 catch (SocketException e) { 
                     if (socket.isClosed()) {
-                        mostrarEnChat("Socket UDP cerrado\n");
-                    }
-                    else {
-                        mostrarEnChat("Error de socket: " + e.getMessage() + "\n");
+                        mostrarEnChat("[Sistema]: Socket cerrado.\n");
                     }
                     ejecutando = false;
                 }
@@ -64,7 +61,6 @@ public class ClienteEscuchaUDP2 extends Thread {
             if (socket != null && !socket.isClosed()) {
                 socket.close(); 
             }
-            mostrarEnChat("Cliente UDP finalizado\n");
         }
     }
 
@@ -75,20 +71,41 @@ public class ClienteEscuchaUDP2 extends Thread {
 
         socket.receive(paquete); 
 
-        String mensaje = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
-        mensajeObj.setMensaje(mensaje);
+        String mensajeRecibido = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
+        
+        // --- LÓGICA DEL CHECKSUM DIRECTO EN LA INTERFAZ ---
+        String[] partes = mensajeRecibido.split("\\|\\|"); 
+
+        if (partes.length == 2) {
+            String textoReal = partes[0]; 
+            long checksumRecibido = Long.parseLong(partes[1].trim()); 
+            
+            long checksumCalculado = calcularChecksum(textoReal.getBytes(StandardCharsets.UTF_8));
+            
+            if (checksumCalculado == checksumRecibido) {
+                // Si cuadran los números, mandamos el texto limpio
+                mensajeObj.setMensaje(textoReal);
+                mostrarEnChat("[Checksum Validado] "); 
+            } else {
+                mostrarEnChat("[Alerta]: Un mensaje se corrompió en la red y fue descartado.\n");
+                mensajeObj.setMensaje("ERROR");
+            }
+        } else {
+            // Si llega sin barras, lo pasamos tal cual (por seguridad)
+            mensajeObj.setMensaje(mensajeRecibido);
+        }
+
         mensajeObj.setAddressServidor(paquete.getAddress());
         mensajeObj.setPuertoServidor(paquete.getPort());
 
         return mensajeObj;
     }
 
-    // Método auxiliar para escribir tanto en consola como en la Interfaz Gráfica
     private void mostrarEnChat(String texto) {
-        EntradaSalida.mostrarMensaje(texto); // Mantiene tu consola actual
+        EntradaSalida.mostrarMensaje(texto); 
         if (areaChatUI != null) {
-            areaChatUI.append(texto); // Lo añade visualmente al chat
-            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength()); // Auto-scroll hacia abajo
+            areaChatUI.append(texto); 
+            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength()); 
         }
     }
 
@@ -97,5 +114,13 @@ public class ClienteEscuchaUDP2 extends Thread {
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
+    }
+
+    private long calcularChecksum(byte[] datos) {
+        long suma = 0;
+        for (byte b : datos) {
+            suma += (b & 0xFF); 
+        }
+        return suma;
     }
 }

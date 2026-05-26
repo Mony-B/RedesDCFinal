@@ -85,7 +85,7 @@ public class ClienteEnviaTCP2 extends Thread {
 
             double bpsFinal = (totalBytes * 8.0) / latenciaTotalSeg;
 
-            mostrarEnChat("\n🎉 ¡Transferencia TCP completada con éxito!\n");
+            mostrarEnChat("\n¡Transferencia TCP completada con éxito!\n");
             mostrarEnChat("⏱️ Latencia Total: " + latenciaTotalSeg + " segundos\n");
             mostrarEnChat("⚡ Velocidad promedio: " + String.format("%.2f", bpsFinal) + " bps\n\n");
             

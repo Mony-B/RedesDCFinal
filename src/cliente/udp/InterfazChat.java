@@ -1,6 +1,6 @@
-package cliente.udp; // Se mantiene en el paquete udp porque ahí lo tienes creado
+package cliente.udp; 
 
-import cliente.tcp.ClienteEnviaTCP2; // Importamos tu clase de transferencia TCP
+import cliente.tcp.ClienteEnviaTCP2; 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -19,79 +19,64 @@ public class InterfazChat extends JFrame {
     private JLabel etiquetaArchivo;
     private File archivoSeleccionado;
 
-    // --- CONFIGURACIÓN DE RED ---
-    // Cambia aquí la IP y el puerto de tu servidor si es necesario
-    private final String SERVER_IP = "localhost"; 
+    // --- CONFIGURACION DE RED ---
+    private final String SERVER_IP = "26.198.149.216"; 
     private final int SERVER_PUERTO = 5000;       
 
     private DatagramSocket socketUDP;
     private ClienteEscuchaUDP2 hiloEscucha;
 
     public InterfazChat() {
-        // 1. CONFIGURACIÓN DE LA VENTANA PRINCIPAL
         setTitle("Sala de Chat - Redes (UDP + TCP)");
         setSize(500, 550);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // Intenta aplicar el estilo visual nativo del sistema operativo
         try { 
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); 
         } catch(Exception e){
             System.err.println("No se pudo establecer el Look and Feel: " + e.getMessage());
         }
 
-        // 2. COMPONENTE: HISTORIAL DE CHAT (Centro)
         areaChat = new JTextArea();
         areaChat.setEditable(false);
         areaChat.setLineWrap(true);
-        areaChat.setWrapStyleWord(true); // Evita romper palabras a la mitad
+        areaChat.setWrapStyleWord(true); 
         areaChat.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         JScrollPane scrollChat = new JScrollPane(areaChat);
         scrollChat.setBorder(BorderFactory.createTitledBorder("Historial del Chat"));
         add(scrollChat, BorderLayout.CENTER);
 
-        // 3. COMPONENTE: CONTROLES INFERIORES
         JPanel panelInferior = new JPanel(new BorderLayout(5, 5));
         panelInferior.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
 
-        // Subpanel superior: Gestión de archivos adjuntos
         JPanel panelArchivo = new JPanel(new BorderLayout(5, 5));
-        botonAdjuntar = new JButton("📎 Adjuntar Archivo");
-        etiquetaArchivo = new JLabel("Ningún archivo seleccionado.");
+        botonAdjuntar = new JButton("Adjuntar Archivo");
+        etiquetaArchivo = new JLabel("Ningun archivo seleccionado.");
         etiquetaArchivo.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         panelArchivo.add(botonAdjuntar, BorderLayout.WEST);
         panelArchivo.add(etiquetaArchivo, BorderLayout.CENTER);
 
-        // Subpanel inferior: Barra de texto y botón enviar
         JPanel panelEscribir = new JPanel(new BorderLayout(5, 5));
         campoMensaje = new JTextField();
         campoMensaje.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        botonEnviar = new JButton("Enviar ➔");
+        botonEnviar = new JButton("Enviar ->");
         botonEnviar.setBackground(new Color(34, 139, 34));
         botonEnviar.setForeground(Color.WHITE);
         
         panelEscribir.add(campoMensaje, BorderLayout.CENTER);
         panelEscribir.add(botonEnviar, BorderLayout.EAST);
 
-        // Agrupar ambos subpaneles en el contenedor inferior
         panelInferior.add(panelArchivo, BorderLayout.NORTH);
         panelInferior.add(panelEscribir, BorderLayout.SOUTH);
         add(panelInferior, BorderLayout.SOUTH);
 
-        // 4. INICIALIZAR ARRANQUE DE RED (UDP)
         inicializarConexionRed();
 
-        // 5. EVENTOS Y ACCIONES DE LA INTERFAZ
-        
-        // Clic en el botón "Enviar"
         botonEnviar.addActionListener(e -> ejecutarEnvio());
-
-        // Presionar ENTER en el teclado dentro de la barra de texto
         campoMensaje.addActionListener(e -> ejecutarEnvio());
 
-        // Clic en el botón "Adjuntar Archivo"
         botonAdjuntar.addActionListener(e -> {
             JFileChooser selector = new JFileChooser();
             int resultado = selector.showOpenDialog(InterfazChat.this);
@@ -103,7 +88,6 @@ public class InterfazChat extends JFrame {
             }
         });
 
-        // Evento que apaga y libera los sockets si cierras la ventana con la 'X'
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -114,15 +98,10 @@ public class InterfazChat extends JFrame {
 
     private void inicializarConexionRed() {
         try {
-            // Inicializa el socket en un puerto aleatorio disponible del cliente
             socketUDP = new DatagramSocket();
-            
-            // Arranca tu hilo de escucha pasándole este socket y el área de texto
             hiloEscucha = new ClienteEscuchaUDP2(socketUDP, this.areaChat);
             hiloEscucha.start();
-            
             areaChat.append("[Sistema]: Chat activo. Destino -> " + SERVER_IP + ":" + SERVER_PUERTO + "\n");
-            
         } catch (Exception e) {
             areaChat.append("[Error Red]: No se pudo inicializar los sockets: " + e.getMessage() + "\n");
         }
@@ -131,21 +110,28 @@ public class InterfazChat extends JFrame {
     private void ejecutarEnvio() {
         String texto = campoMensaje.getText().trim();
 
-        // 1. PROCESAR ENVÍO DE TEXTO NORMAL VÍA UDP
+        // 1. PROCESAR ENVIO DE TEXTO NORMAL VIA UDP (CON CHECKSUM RESTAURADO)
         if (!texto.isEmpty()) {
             try {
-                byte[] buffer = texto.getBytes(StandardCharsets.UTF_8);
-                InetAddress ipServidor = InetAddress.getByName(SERVER_IP);
+                // Recuperamos la logica del Checksum que tenian en su ClienteEnviaUDP2
+                byte[] bytesOriginales = texto.getBytes(StandardCharsets.UTF_8);
+                long checksum = calcularChecksum(bytesOriginales);
                 
+                // Empacamos el mensaje con la barda separadora para que el servidor lo entienda
+                String mensajeEmpacado = texto + "||" + checksum;
+                byte[] buffer = mensajeEmpacado.getBytes(StandardCharsets.UTF_8);
+                
+                InetAddress ipServidor = InetAddress.getByName(SERVER_IP);
                 DatagramPacket paquete = new DatagramPacket(buffer, buffer.length, ipServidor, SERVER_PUERTO);
+                
                 socketUDP.send(paquete);
                 
-                areaChat.append("Tú: " + texto + "\n");
+                areaChat.append("Tu: " + texto + "\n");
                 campoMensaje.setText(""); 
                 scrollAbajo();
 
                 if (texto.equalsIgnoreCase("fin")) {
-                    areaChat.append("[Sistema]: Solicitando desconexión...\n");
+                    areaChat.append("[Sistema]: Solicitando desconexion...\n");
                     cerrarConexiones();
                     this.dispose();
                     System.exit(0);
@@ -156,12 +142,11 @@ public class InterfazChat extends JFrame {
             }
         }
 
-        // 2. PROCESAR ENVÍO DE ARCHIVO USANDO TU CLASE CLIENTEENVIATCP2
+        // 2. PROCESAR ENVIO DE ARCHIVO USANDO TU CLASE CLIENTEENVIATCP2
         if (archivoSeleccionado != null) {
             try {
                 areaChat.append("[Local]: Abriendo flujo TCP para enviar \"" + archivoSeleccionado.getName() + "\"...\n");
                 
-                // Instanciamos tu clase mandándole de golpe los 4 parámetros que requiere
                 ClienteEnviaTCP2 hiloArchivo = new ClienteEnviaTCP2(
                     SERVER_IP, 
                     SERVER_PUERTO, 
@@ -169,26 +154,22 @@ public class InterfazChat extends JFrame {
                     this.areaChat
                 );
                 
-                // Despega el hilo en segundo plano para no congelar la ventana del chat
                 hiloArchivo.start();
 
             } catch (Exception e) {
                 areaChat.append("[Error Canal TCP]: " + e.getMessage() + "\n");
             }
 
-            // Liberar la variable y limpiar el indicador para el siguiente envío
             archivoSeleccionado = null;
-            etiquetaArchivo.setText("Ningún archivo seleccionado.");
+            etiquetaArchivo.setText("Ningun archivo seleccionado.");
             scrollAbajo();
         }
     }
 
-    // Fuerza a la barra de desplazamiento a ir al final de forma fluida
     private void scrollAbajo() {
         areaChat.setCaretPosition(areaChat.getDocument().getLength());
     }
 
-    // Método de apagado limpio
     private void cerrarConexiones() {
         if (hiloEscucha != null) {
             hiloEscucha.detener();
@@ -198,8 +179,16 @@ public class InterfazChat extends JFrame {
         }
     }
 
+    // Metodo necesario para el punto 6 de la rubrica en la interfaz
+    private long calcularChecksum(byte[] datos) {
+        long suma = 0;
+        for (byte b : datos) {
+            suma += (b & 0xFF);
+        }
+        return suma;
+    }
+
     public static void main(String[] args) {
-        // Ejecución segura sobre el Event Dispatch Thread de Swing
         SwingUtilities.invokeLater(() -> new InterfazChat().setVisible(true));
     }
 }

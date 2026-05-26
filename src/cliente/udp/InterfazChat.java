@@ -21,7 +21,7 @@ public class InterfazChat extends JFrame {
 
     // --- CONFIGURACION DE RED ---
     private final String SERVER_IP = "26.198.149.216"; 
-    private final int SERVER_PUERTO = 5000;       
+    private final int SERVER_PUERTO = 50000;       
 
     private DatagramSocket socketUDP;
     private ClienteEscuchaUDP2 hiloEscucha;

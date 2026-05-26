@@ -1,6 +1,8 @@
 package cliente.udp; 
 
-import cliente.tcp.ClienteEnviaTCP2; 
+import cliente.tcp.ClienteEnviaTCP2;
+import servidor.tcp.ServidorEscuchaTCP2;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -98,14 +100,19 @@ public class InterfazChat extends JFrame {
 
     private void inicializarConexionRed() {
         try {
-            //Le agregamos SERVER_PUERTO entre los paréntesis
+            // 1. Arrancamos la escucha UDP de los textos en la interfaz
             socketUDP = new DatagramSocket(SERVER_PUERTO);
-            
             hiloEscucha = new ClienteEscuchaUDP2(socketUDP, this.areaChat);
             hiloEscucha.start();
-            areaChat.append("[Sistema]: Chat activo. Destino -> " + SERVER_IP + ":" + SERVER_PUERTO + "\n");
+            
+            // 2. Arrancamos el servidor TCP de los archivos mandando el puerto y el JTextArea (this.areaChat)
+            ServidorEscuchaTCP2 hiloArchivos = new ServidorEscuchaTCP2(SERVER_PUERTO, this.areaChat);
+            hiloArchivos.start();
+
+            areaChat.append("[Sistema]: Chat activo y listo para enviar/recibir datos.\n");
+            
         } catch (Exception e) {
-            areaChat.append("[Error Red]: El puerto ya está en uso. Cierra las terminales negras.\n");
+            areaChat.append("[Error Red]: El puerto ya está en uso. Cierra las terminales de consola anteriores.\n");
         }
     }
 

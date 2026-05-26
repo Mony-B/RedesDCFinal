@@ -1,6 +1,7 @@
 package servidor.tcp;
 
 import datos.EntradaSalida;
+import javax.swing.JTextArea; // <-- AGREGAMOS ESTO PARA LA INTERFAZ
 import java.net.*;
 import java.io.*;
 
@@ -8,24 +9,27 @@ public class ServidorEscuchaTCP2 extends Thread {
     protected ServerSocket socket; //Socket servidor
     protected Socket socket_cli; //Socket de datos cliente
     protected final int PUERTO_SERVER;
+    private JTextArea areaChatUI; // <-- VARIABLE PARA GUARDAR LA REFERENCIA DE LA VENTANA
 
-    public ServidorEscuchaTCP2(int puertoS) throws Exception {
+    // Modificamos el constructor para recibir el JTextArea de la interfaz
+    public ServidorEscuchaTCP2(int puertoS, JTextArea areaChatUI) throws Exception {
         PUERTO_SERVER = puertoS;
         // Primitiva de LISTEN, crea socket con Ip (implìcita activa) y puerto
         socket = new ServerSocket(PUERTO_SERVER);
+        this.areaChatUI = areaChatUI; // <-- GUARDAMOS LA REFERENCIA
     }
 
     @Override
     public void run() {
         try {
-            EntradaSalida.mostrarMensaje("Servidor escuchando en puerto " + PUERTO_SERVER + "...\n");
+            mostrarEnChat("[Sistema TCP]: Servidor escuchando en puerto " + PUERTO_SERVER + "...\n");
 
             // El servidor queda esperando clientes siempre
             while (true) {
                 // Primitiva ACCEPT, acepta conexiones de clientes //SOLO ESO
                 socket_cli = socket.accept();
 
-                EntradaSalida.mostrarMensaje("Cliente conectado "+ socket_cli.getInetAddress()+ ":" + socket_cli.getPort() + "\n");
+                mostrarEnChat("[Sistema TCP]: Cliente conectado " + socket_cli.getInetAddress() + ":" + socket_cli.getPort() + "\n");
 
                 // Crear flujo de entrada de datos del socket para ese cliente
                 // MONY/FER: Este es el tubito por donde van a caer los bytes del archivo
@@ -37,23 +41,23 @@ public class ServidorEscuchaTCP2 extends Thread {
                 }
                 // Cliente cerró conexión normalmente
                 catch (EOFException e) {
-                    EntradaSalida.mostrarMensaje( "Cliente desconectado\n");
+                    mostrarEnChat("[Sistema TCP]: Cliente desconectado\n");
                 }
                 // Error de socket
                 catch (SocketException e) {
-                    EntradaSalida.mostrarMensaje( "Conexión perdida con cliente\n");
+                    mostrarEnChat("[Sistema TCP]: Conexión perdida con cliente\n");
                 }
                 catch (Exception e) {
-                    EntradaSalida.mostrarMensaje( "Error recibiendo el archivo: " + e.getMessage() + "\n");
+                    mostrarEnChat("[Error TCP]: Error recibiendo el archivo: " + e.getMessage() + "\n");
                 }
 
                 // cerrar socket del cliente
                 socket_cli.close();
-                EntradaSalida.mostrarMensaje( "Esperando nuevo cliente...\n");
+                mostrarEnChat("[Sistema TCP]: Esperando nuevo cliente...\n");
             }
         }
         catch (Exception e) {
-            System.err.println( "Error en servidor: " + e.getMessage());
+            System.err.println("Error en servidor: " + e.getMessage());
         }
     }
 
@@ -66,7 +70,7 @@ public class ServidorEscuchaTCP2 extends Thread {
         String nombreArchivo = in.readUTF(); // ESTOS DATOS SE LEEN DEL FLUJO (in)
         long tamanoArchivo = in.readLong();
 
-        EntradaSalida.mostrarMensaje("Descargando archivo: " + nombreArchivo + " (" + tamanoArchivo + " bytes)...\n");
+        mostrarEnChat("[Descarga]: Recibiendo archivo: " + nombreArchivo + " (" + tamanoArchivo + " bytes)...\n");
 
         // 2. Preparamos el archivo vacío en la carpeta de recibidos para empezar a rellenarlo
         File archivoDestino = new File("src/archivos_recibidos/Copia_" + nombreArchivo);
@@ -86,6 +90,15 @@ public class ServidorEscuchaTCP2 extends Thread {
         }
 
         fos.close(); // Cerramos la escritura
-        EntradaSalida.mostrarMensaje("¡Archivo guardado correctamente en src/archivos_recibidos/\n");
+        mostrarEnChat("[Descarga]: Archivo guardado correctamente en src/archivos_recibidos/\n");
+    }
+
+    // Método auxiliar para escribir en la consola de comandos y en la Interfaz Gráfica a la vez
+    private void mostrarEnChat(String texto) {
+        EntradaSalida.mostrarMensaje(texto); // Mantiene las salidas en tu consola actual
+        if (areaChatUI != null) {
+            areaChatUI.append(texto); // Agrega el texto al historial visual del chat
+            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength()); // Desplazamiento automático hacia abajo
+        }
     }
 }

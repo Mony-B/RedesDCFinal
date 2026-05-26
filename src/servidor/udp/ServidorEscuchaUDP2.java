@@ -92,9 +92,42 @@ public class ServidorEscuchaUDP2 extends Thread {
         socket.receive(paquete);
 
         // convertir bytes a cadena String
-        String mensaje =  new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
+        // 1. Recibir los bytes y pasarlos a String 
+        String mensajeRecibido = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
 
-        mensajeObj.setMensaje(mensaje);
+        //Mony: corto el texto justo donde encuentre las barritas "||" para separar el chisme de la prueba matemática
+        //Fer: Ojo, en Java las barritas se escapan con doble diagonal invertida (\\) porque el símbolo "|" por sí solo significa "OR" lógico.
+        String[] partes = mensajeRecibido.split("\\|\\|"); 
+
+        //Mony: me aseguro de que el mensaje sí se partió en 2 pedazos (el texto y el número)
+        if (partes.length == 2) {
+            
+            String mensajeReal = partes[0]; //Mony: la primera mitad, lo que realmente me quisieron decir
+            long checksumDelCliente = Long.parseLong(partes[1]); //Mony: la segunda mitad, el número de seguridad que calculó el cliente
+            
+            //Mony: yo como servidor no confío, así que hago mi propia suma matemática con el texto que me llegó a ver si es cierto
+            long checksumMio = calcularChecksum(mensajeReal.getBytes(StandardCharsets.UTF_8));
+            
+            //Mony: el momento de la verdad, comparamos si mi suma da exactamente lo mismo que la tuya
+            if (checksumMio == checksumDelCliente) {
+                
+                mensajeObj.setMensaje(mensajeReal); //Mony: Todo chido, guardo el mensaje limpio para mostrarlo
+                System.out.println("Checksum validado: El mensaje está íntegro.");
+                
+            } else {
+                
+                //Mony: Si los números no dan lo mismo, significa que algún byte se perdió,
+                //  hubo interferencia en la red o unos asqueles se metieron a morder el cable.
+                mensajeObj.setMensaje("ERROR: Mensaje corrupto.");
+                System.out.println("ERROR: El Checksum no coincide.");
+                
+            }
+        } else {
+            //Mony: Por si llega un mensaje viejo o de prueba que no trae las barritas del Checksum, 
+            // lo guardamos así nomás
+            mensajeObj.setMensaje(mensajeRecibido); 
+        }
+
         // datos cliente
         mensajeObj.setAddressCliente(paquete.getAddress());
         mensajeObj.setPuertoCliente(paquete.getPort());
@@ -118,4 +151,18 @@ public class ServidorEscuchaUDP2 extends Thread {
         EntradaSalida.mostrarMensaje( "Mensaje enviado \"" + mensajeObj.getMensaje() + "\" al cliente "
                 + mensajeObj.getAddressCliente() + ":" + mensajeObj.getPuertoCliente() + "\n");
     }
+
+    // Método manual para calcular el Checksum
+public long calcularChecksum(byte[] datos) {
+    long suma = 0;
+    
+    //Mony: recorro cada pedacito (byte) del mensaje uno por uno
+    for (byte b : datos) {
+        //Mony: Java a veces es raro y le pone signo negativo a los bytes grandes. 
+        //Fer: Al hacer el "& 0xFF" lo forzamos a que sea un número positivo limpio de 0 a 255.
+        suma += (b & 0xFF); 
+    }
+    //Mony: regreso el total de la suma para pegarlo al mensaje
+    return suma;
+}
 }

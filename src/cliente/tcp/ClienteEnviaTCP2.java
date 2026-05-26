@@ -70,8 +70,8 @@ public class ClienteEnviaTCP2 extends Thread {
                     double tiempoRestanteSeg = (bytesRestantes * 8.0) / velocidadBps;
                     double progreso = (bytesEnviados * 100.0) / totalBytes;
 
-                    mostrarEnChat(String.format(">> Progreso: %.1f%% | Restante: %.1fs | Vel: %.2f bps\n", 
-                            progreso, tiempoRestanteSeg, velocidadBps));
+                    mostrarEnChat(String.format(">> Progreso: %.1f%% | T. Transcurrido: %.1fs | T. Restante: %.1fs | Velocidad: %.2f bps\n", 
+                            progreso, (tiempoTranscurridoMs / 1000.0), tiempoRestanteSeg, velocidadBps));
                 }
             }
             out.flush();
@@ -85,9 +85,9 @@ public class ClienteEnviaTCP2 extends Thread {
 
             double bpsFinal = (totalBytes * 8.0) / latenciaTotalSeg;
 
-            mostrarEnChat("\n¡Transferencia TCP completada con éxito!\n");
-            mostrarEnChat("⏱️ Latencia Total: " + latenciaTotalSeg + " segundos\n");
-            mostrarEnChat("⚡ Velocidad promedio: " + String.format("%.2f", bpsFinal) + " bps\n\n");
+            mostrarEnChat("\nTransferencia completada correctamente!\n");
+            mostrarEnChat("Latencia Total: " + latenciaTotalSeg + " segundos\n");
+            mostrarEnChat("Tasa de transferencia: " + String.format("%.2f", bpsFinal) + " bps\n\n");
             
         } else {
             mostrarEnChat("[TCP Error]: El archivo no existe o no fue seleccionado.\n");

@@ -2,92 +2,96 @@ package cliente.udp;
 
 import datos.EntradaSalida;
 import datos.Mensaje;
-
+import javax.swing.JTextArea; // <-- AGREGAMOS ESTO
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 public class ClienteEscuchaUDP2 extends Thread {
     protected final int PUERTO_CLIENTE;
-    protected DatagramSocket socket; //socket del cliente
+    protected DatagramSocket socket; 
     private static final int MAX_BUFFER = 1024;
-    private volatile boolean ejecutando = true; // esta es la misma q del envia, volatil es que: decirle q hay 2 hilos q comparten una variable
+    private volatile boolean ejecutando = true; 
+    
+    // Referencia al área de texto del Chat UI
+    private JTextArea areaChatUI; // <-- AGREGAMOS ESTO
 
-    public ClienteEscuchaUDP2(DatagramSocket socketNuevo) {
+    // Actualizamos el constructor para recibir el JTextArea
+    public ClienteEscuchaUDP2(DatagramSocket socketNuevo, JTextArea areaChatUI) {
         socket = socketNuevo;
-        PUERTO_CLIENTE =socket.getLocalPort(); // Mony: aquí saca el puerto aleatorio
+        PUERTO_CLIENTE = socket.getLocalPort(); 
+        this.areaChatUI = areaChatUI; // <-- GUARDAMOS LA REFERENCIA
     }
 
-    @Override //invocan al run, cuando se crea el socket la IP se saca automática
+    @Override 
     public void run() {
-        try { //esto para q el usuario vea en la pantalla
-            EntradaSalida.mostrarMensaje( "Cliente UDP escuchando en puerto "+ PUERTO_CLIENTE + "\n");
+        try { 
+            mostrarEnChat("Cliente UDP escuchando en puerto " + PUERTO_CLIENTE + "\n");
 
             while (ejecutando) {
-                try { //este es el método que nos interesa, está dentro del ciclo infinito
+                try { 
                     Mensaje mensajeObj = recibeMensaje();
-                    //es un agrupador
                     String mensaje = mensajeObj.getMensaje();
 
-                    // protocolo simple
+                    // Mostrar mensaje recibido en la interfaz gráfica
+                    mostrarEnChat("Servidor [" + mensajeObj.getPuertoServidor() + "]: " + mensaje + "\n");
+
                     if (mensaje.equalsIgnoreCase("fin")) {
-                        EntradaSalida.mostrarMensaje("Servidor finalizó comunicación\n");
+                        mostrarEnChat("Servidor finalizó comunicación\n");
                         ejecutando = false;
                     }
                 }
                 catch (SocketTimeoutException e) {
-                    EntradaSalida.mostrarMensaje("Esperando mensajes UDP...\n");
+                    // Opcional: no saturar la UI con "esperando mensajes"
                 }
-                catch (SocketException e) { //cuando el socket está cerrado marca esta excepción
+                catch (SocketException e) { 
                     if (socket.isClosed()) {
-                        EntradaSalida.mostrarMensaje("Socket UDP cerrado\n");
+                        mostrarEnChat("Socket UDP cerrado\n");
                     }
                     else {
-                        EntradaSalida.mostrarMensaje("Error de socket: "+ e.getMessage() + "\n");
+                        mostrarEnChat("Error de socket: " + e.getMessage() + "\n");
                     }
                     ejecutando = false;
                 }
                 catch (Exception e) {
-                    EntradaSalida.mostrarMensaje(ejecutando +" Error recibiendo mensaje: "+ e.getMessage() + "\n");
+                    mostrarEnChat("Error recibiendo mensaje: " + e.getMessage() + "\n");
                 }
             }
         }
         catch (Exception e) {
-            System.err.println("Error cliente UDP: "+ e.getMessage());
+            System.err.println("Error cliente UDP: " + e.getMessage());
         }
         finally {
             if (socket != null && !socket.isClosed()) {
-                socket.close(); //cerrar socket
+                socket.close(); 
             }
-            EntradaSalida.mostrarMensaje( "Cliente UDP finalizado\n");
+            mostrarEnChat("Cliente UDP finalizado\n");
         }
     }
 
     private Mensaje recibeMensaje() throws Exception {
-
         Mensaje mensajeObj = new Mensaje();
+        byte[] buffer = new byte[MAX_BUFFER]; 
+        DatagramPacket paquete = new DatagramPacket(buffer, buffer.length); 
 
-        // buffer recepción
-        byte[] buffer = new byte[MAX_BUFFER]; //MONY: guardamos en una variable de tipo BYTE
+        socket.receive(paquete); 
 
-        DatagramPacket paquete = new DatagramPacket(buffer,buffer.length); //MONY: creamos un PDU y aquí se guarda lo q recibimos
-
-        // Se queda bloqueante recibiendo
-        socket.receive(paquete); //MONY:De aquí lo recibimos, lo llenamos
-
-        // bytes a String correctamente
-        String mensaje = new String(paquete.getData(),0, paquete.getLength(), StandardCharsets.UTF_8);
+        String mensaje = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
         mensajeObj.setMensaje(mensaje);
         mensajeObj.setAddressServidor(paquete.getAddress());
         mensajeObj.setPuertoServidor(paquete.getPort());
 
-        EntradaSalida.mostrarMensaje("Mensaje recibido \"" + mensajeObj.getMensaje()
-                + "\" de servidor " + mensajeObj.getAddressServidor()+ ":"
-                + mensajeObj.getPuertoServidor() + "\n");
-
         return mensajeObj;
     }
 
-    // detener hilo manualmente
+    // Método auxiliar para escribir tanto en consola como en la Interfaz Gráfica
+    private void mostrarEnChat(String texto) {
+        EntradaSalida.mostrarMensaje(texto); // Mantiene tu consola actual
+        if (areaChatUI != null) {
+            areaChatUI.append(texto); // Lo añade visualmente al chat
+            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength()); // Auto-scroll hacia abajo
+        }
+    }
+
     public void detener() {
         ejecutando = false;
         if (socket != null && !socket.isClosed()) {

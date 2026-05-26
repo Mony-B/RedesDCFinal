@@ -1,8 +1,6 @@
 package cliente.tcp;
 
 import datos.EntradaSalida;
-import datos.Mensaje;
-
 import java.net.*;
 import java.io.*;
 
@@ -21,31 +19,19 @@ public class ClienteEnviaTCP2 extends Thread {
 
     @Override
     public void run() {
-        BufferedReader teclado = null;
         DataOutputStream out = null;
 
         try {
             EntradaSalida.mostrarMensaje( "Cliente conectado con servidor "+ socket.getInetAddress()
                                             + ":" + socket.getPort() + "\n");
 
-            EntradaSalida.mostrarMensaje( "Escribe mensajes (fin para salir)\n");
-
-            // Crear flujo de teclado
-            teclado = new BufferedReader( new InputStreamReader(System.in));
-
-            //Crea flujo de salida de red al socket
+            // Crea flujo de salida de red al socket
+            // MONY/FER: Este es como si fuera el tubo por donde vamos a aventar los bytes del 
+            // archivo a la red.
             out = new DataOutputStream(socket.getOutputStream());
 
-            while (true) {
-                //Invocamos a mètodo que envìa datos por la red
-                Mensaje mensajeObj =  enviaMensaje(teclado, out);
-
-                // condición de salida
-                if (mensajeObj.getMensaje().equalsIgnoreCase("fin")) {
-                    EntradaSalida.mostrarMensaje("Cerrando conexión...\n");
-                    break;
-                }
-            }
+            // Invocamos a método que envía datos por la red 
+            enviaArchivo(out);
 
         }
         catch (Exception e) {
@@ -57,9 +43,6 @@ public class ClienteEnviaTCP2 extends Thread {
                 if (out != null) //flujos de socket
                     out.close();
 
-                if (teclado != null) //flujos entrada de teclado
-                    teclado.close();
-
                 if (socket != null && !socket.isClosed()) { //cerramos socket
                     socket.close();
                 }
@@ -70,25 +53,59 @@ public class ClienteEnviaTCP2 extends Thread {
         }
     }
 
-    private Mensaje enviaMensaje(BufferedReader teclado, DataOutputStream out) throws Exception {
+    // MONY/FER: Transformamos el 'enviaMensaje' en 'enviaArchivo'. 
+    // Aquí es donde vamos calcular la latencia y la velocidad.
+    private void enviaArchivo(DataOutputStream out) throws Exception {
 
-        Mensaje mensajeObj = new Mensaje();
-        // leer teclado
-        String mensaje = teclado.readLine();
+        // 1. Apuntamos al archivo físico que pusimos en la carpeta
+        File archivo = new File("src/archivos_enviados/besties.jpeg"); 
 
-        // enviar UTF por el socket
-        out.writeUTF(mensaje);
+        if (!archivo.exists()) {
+            EntradaSalida.mostrarMensaje("❌ ERROR: No se encontró el archivo.\n");
+            return; // Si no hay foto, abortamos la misión
+        }
 
+        // 2. Le decimos al servidor cómo se llama el archivo y cuánto pesa para que se prepare
+        out.writeUTF(archivo.getName());  // enviar UTF por el socket (Nombre)
+        out.writeLong(archivo.length());  // Enviamos el peso total
+
+        // 3. Preparamos la lectura del disco duro
+        FileInputStream fis = new FileInputStream(archivo);
+        byte[] buffer = new byte[4096]; // Este es el que transporta bytes de 4 en 4 KB
+        int bytesLeidos;
+
+        EntradaSalida.mostrarMensaje("Enviando archivo \"" + archivo.getName() + "\"...\n");
+
+        // --- PUNTO 3 DEL PROYECTO: Cálculooos ---
+        //MONY/FER: Justo antes de que salga el primer byte, tomamos la hora exacta en milisegundos
+        long tiempoInicio = System.currentTimeMillis();
+
+        // 4. El ciclo que lee la foto de la compu y la empuja al socket
+        while ((bytesLeidos = fis.read(buffer)) != -1) {
+            out.write(buffer, 0, bytesLeidos);
+        }
+        
         // forzar envío
         out.flush();
 
-        mensajeObj.setMensaje(mensaje);
-        mensajeObj.setAddressServidor(socket.getInetAddress());
-        mensajeObj.setPuertoServidor(socket.getPort());
+        //MONY/FER: Terminó de enviarse y Tomamos la hora exacta en la que terminó
+        long tiempoFin = System.currentTimeMillis();
+        fis.close(); // Cerramos la lectura del disco
 
-        EntradaSalida.mostrarMensaje("Mensaje \""+ mensajeObj.getMensaje()+ "\" enviado a servidor "
-                + mensajeObj.getAddressServidor() + ":"+ mensajeObj.getPuertoServidor()+ "\n");
+        // 5. Calculamos la Latencia (Tiempo total que tardó el viaje)
+        long latenciaMs = tiempoFin - tiempoInicio;
+        double latenciaSeg = latenciaMs / 1000.0; // Lo pasamos a segundos
+        
+        // Trampita por si la compu es muy rápida y da 0 (para que no explote la división)
+        if (latenciaSeg == 0) latenciaSeg = 0.001; 
 
-        return mensajeObj;
+        // 6. Calculamos la Tasa de Transferencia (bps = bits por segundo)
+        // La fórmula es: (Bytes del archivo * 8 para hacerlo bits) / Segundos que tardó
+        double bits = archivo.length() * 8;
+        double bps = bits / latenciaSeg;
+
+        EntradaSalida.mostrarMensaje("¡Archivo enviado con éxito jiji!\n");
+        EntradaSalida.mostrarMensaje("Latencia (Tiempo total): " + latenciaSeg + " segundos\n");
+        EntradaSalida.mostrarMensaje("Tasa de transferencia: " + String.format("%.2f", bps) + " bps\n\n");
     }
 }

@@ -1,8 +1,6 @@
 package servidor.tcp;
 
 import datos.EntradaSalida;
-import datos.Mensaje;
-
 import java.net.*;
 import java.io.*;
 
@@ -30,32 +28,25 @@ public class ServidorEscuchaTCP2 extends Thread {
                 EntradaSalida.mostrarMensaje("Cliente conectado "+ socket_cli.getInetAddress()+ ":" + socket_cli.getPort() + "\n");
 
                 // Crear flujo de entrada de datos del socket para ese cliente
+                // MONY/FER: Este es el tubito por donde van a caer los bytes del archivo
                 DataInputStream in = new DataInputStream(socket_cli.getInputStream());
 
-                // Leer mensajes del cliente conectado //TIEMPO INDEFINIDO DE C/CONEXIÓN DE CADA CLIENTE
-                while (true) {
-                    try {
-                        //Se queda esperando mensajes
-                        Mensaje mensajeObj = recibeMensaje(in); //EL IN ES EL FLUJO DEL SOCKET
-
-                        if (mensajeObj != null) {
-                            EntradaSalida.mostrarMensaje("Mensaje recibido \""+ mensajeObj.getMensaje()
-                                    + "\" del cliente "+ mensajeObj.getAddressCliente()+ ":"
-                                    + mensajeObj.getPuertoCliente() + "\n");
-                        }
-
-                    }
-                    // Cliente cerró conexión normalmente
-                    catch (EOFException e) {
-                        EntradaSalida.mostrarMensaje( "Cliente desconectado\n");
-                        break;
-                    }
-                    // Error de socket
-                    catch (SocketException e) {
-                        EntradaSalida.mostrarMensaje( "Conexión perdida con cliente\n");
-                        break;
-                    }
+                try {
+                    // Invocamos nuestro método especial para cachar los bytes y armar el archivo
+                    recibeArchivo(in); 
                 }
+                // Cliente cerró conexión normalmente
+                catch (EOFException e) {
+                    EntradaSalida.mostrarMensaje( "Cliente desconectado\n");
+                }
+                // Error de socket
+                catch (SocketException e) {
+                    EntradaSalida.mostrarMensaje( "Conexión perdida con cliente\n");
+                }
+                catch (Exception e) {
+                    EntradaSalida.mostrarMensaje( "Error recibiendo el archivo: " + e.getMessage() + "\n");
+                }
+
                 // cerrar socket del cliente
                 socket_cli.close();
                 EntradaSalida.mostrarMensaje( "Esperando nuevo cliente...\n");
@@ -65,16 +56,36 @@ public class ServidorEscuchaTCP2 extends Thread {
             System.err.println( "Error en servidor: " + e.getMessage());
         }
     }
-    //MÉTODO DE RECIBIR MENSAJE
-    private Mensaje recibeMensaje(DataInputStream in) throws Exception {
-        Mensaje mensajeObj = new Mensaje();
 
-        // Se queda bloqueante en espera de mensajes
-        String mensaje = in.readUTF(); //ESTOS DATOS SE LEEN DEL FLUJO (in) Q VIENEN DESDE EL ARGUMENTO
-        mensajeObj.setMensaje(mensaje);
-        mensajeObj.setAddressCliente(socket_cli.getInetAddress());
-        mensajeObj.setPuertoCliente(socket_cli.getPort());
+    // MÉTODO DE RECIBIR ARCHIVO (Sustituye a recibeMensaje)
+    // MONY/FER: Aquí el servidor reconstruye el archivo pedacito a pedacito
+    private void recibeArchivo(DataInputStream in) throws Exception {
+        
+        // Se queda bloqueante en espera de leer los datos del archivo
+        // 1. Leemos lo que nos mandó el cliente (Nombre y peso)
+        String nombreArchivo = in.readUTF(); // ESTOS DATOS SE LEEN DEL FLUJO (in)
+        long tamanoArchivo = in.readLong();
 
-        return mensajeObj;
+        EntradaSalida.mostrarMensaje("Descargando archivo: " + nombreArchivo + " (" + tamanoArchivo + " bytes)...\n");
+
+        // 2. Preparamos el archivo vacío en la carpeta de recibidos para empezar a rellenarlo
+        File archivoDestino = new File("src/archivos_recibidos/Copia_" + nombreArchivo);
+        FileOutputStream fos = new FileOutputStream(archivoDestino);
+
+        byte[] buffer = new byte[4096]; // El mismo carrito de 4KB para ir descargando
+        int bytesLeidos;
+        long bytesRecibidosTotal = 0; // Un contador para saber cuándo parar
+
+        // 3. El ciclo que cacha los bytes de la red y los pone en el disco duro
+        // MONY/FER: Esto se repite hasta que los bytes recibidos sean iguales al peso total del archivo
+        while (bytesRecibidosTotal < tamanoArchivo && 
+              (bytesLeidos = in.read(buffer, 0, (int)Math.min(buffer.length, tamanoArchivo - bytesRecibidosTotal))) != -1) {
+            
+            fos.write(buffer, 0, bytesLeidos);
+            bytesRecibidosTotal += bytesLeidos; // Sumamos lo que acaba de llegar al contador
+        }
+
+        fos.close(); // Cerramos la escritura
+        EntradaSalida.mostrarMensaje("¡Archivo guardado correctamente en src/archivos_recibidos/\n");
     }
 }

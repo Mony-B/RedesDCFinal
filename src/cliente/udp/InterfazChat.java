@@ -20,7 +20,7 @@ public class InterfazChat extends JFrame {
     private File archivoSeleccionado;
 
     // --- CONFIGURACION DE RED ---
-    private final String SERVER_IP = "26.190.167.15"; 
+    private final String SERVER_IP = "26.198.149.216"; 
     private final int SERVER_PUERTO = 50000;       
 
     private DatagramSocket socketUDP;

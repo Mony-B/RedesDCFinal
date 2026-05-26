@@ -112,13 +112,13 @@ public class ServidorEscuchaUDP2 extends Thread {
             if (checksumMio == checksumDelCliente) {
                 
                 mensajeObj.setMensaje(mensajeReal); //Mony: Todo chido, guardo el mensaje limpio para mostrarlo
-                System.out.println("Checksum validado: El mensaje está íntegro.");
+                System.out.println("Checksum validado: El mensaje está completo y todo bieeen.");
                 
             } else {
                 
                 //Mony: Si los números no dan lo mismo, significa que algún byte se perdió,
                 //  hubo interferencia en la red o unos asqueles se metieron a morder el cable.
-                mensajeObj.setMensaje("ERROR: Mensaje corrupto.");
+                mensajeObj.setMensaje("ERROR: Mensaje corrupto y malo.");
                 System.out.println("ERROR: El Checksum no coincide.");
                 
             }

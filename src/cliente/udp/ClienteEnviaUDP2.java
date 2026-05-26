@@ -73,7 +73,7 @@ public class ClienteEnviaUDP2 extends Thread {
         byte[] bytesOriginales = mensaje.getBytes(StandardCharsets.UTF_8);
 
         //Mony: mandamos esos bytes a la calculadora que hicimos abajo para sacar el total
-        long checksum = calcularChecksum(bytesOriginales);
+        long checksum = calcularChecksum(bytesOriginales)+1; //AQUI ES PA VER QUE FUNCIONE CON ERROR
 
         //Mony: le pego el número de seguridad al final del texto para que viajen juntos. 
         // Uso "||" como si fuera una barda para separar el texto del número.
@@ -91,7 +91,7 @@ public class ClienteEnviaUDP2 extends Thread {
         socket.send(paquete);
 
         // llenar objeto mensaje 
-        //Guardamos el mensaje original en el obj para que en la pantalla no se vea el ||numero
+        //Guardamos el mensaje original en el obj para que en la pantalla no se vea el '||numero'
         mensajeObj.setMensaje(mensaje);
         mensajeObj.setAddressServidor(paquete.getAddress());
         mensajeObj.setPuertoServidor(paquete.getPort());

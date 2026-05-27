@@ -32,7 +32,7 @@ public class ServidorEscuchaTCP2 extends Thread {
                 mostrarEnChat("[Sistema TCP]: Cliente conectado " + socket_cli.getInetAddress() + ":" + socket_cli.getPort() + "\n");
 
                 // Crear flujo de entrada de datos del socket para ese cliente
-                // MONY/FER: Este es el tubito por donde van a caer los bytes del archivo
+                // Este es el conducto por donde van a caer los bytes del archivo
                 DataInputStream in = new DataInputStream(socket_cli.getInputStream());
 
                 try {
@@ -62,7 +62,7 @@ public class ServidorEscuchaTCP2 extends Thread {
     }
 
     // MÉTODO DE RECIBIR ARCHIVO (Sustituye a recibeMensaje)
-    // MONY/FER: Aquí el servidor reconstruye el archivo pedacito a pedacito
+    // Aquí el servidor reconstruye el archivo pedacito a pedacito
     private void recibeArchivo(DataInputStream in) throws Exception {
         
         // Se queda bloqueante en espera de leer los datos del archivo
@@ -76,12 +76,12 @@ public class ServidorEscuchaTCP2 extends Thread {
         File archivoDestino = new File("src/archivos_recibidos/Copia_" + nombreArchivo);
         FileOutputStream fos = new FileOutputStream(archivoDestino);
 
-        byte[] buffer = new byte[4096]; // El mismo carrito de 4KB para ir descargando
+        byte[] buffer = new byte[4096]; // El mismo flujo de 4KB para ir descargando
         int bytesLeidos;
         long bytesRecibidosTotal = 0; // Un contador para saber cuándo parar
 
         // 3. El ciclo que cacha los bytes de la red y los pone en el disco duro
-        // MONY/FER: Esto se repite hasta que los bytes recibidos sean iguales al peso total del archivo
+        // Esto se repite hasta que los bytes recibidos sean iguales al peso total del archivo
         while (bytesRecibidosTotal < tamanoArchivo && 
               (bytesLeidos = in.read(buffer, 0, (int)Math.min(buffer.length, tamanoArchivo - bytesRecibidosTotal))) != -1) {
             

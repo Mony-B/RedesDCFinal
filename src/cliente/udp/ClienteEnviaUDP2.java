@@ -14,7 +14,6 @@ public class ClienteEnviaUDP2 extends Thread {
     protected InetAddress addressServer;
     private volatile boolean ejecutando = true; //variable en común
 
-    //
     public ClienteEnviaUDP2(DatagramSocket nuevoSocket,String servidor,int puertoServidor) throws Exception {
         socket = nuevoSocket;
         SERVER = servidor;
@@ -28,7 +27,7 @@ public class ClienteEnviaUDP2 extends Thread {
     public void run() { 
         BufferedReader teclado = null;
 
-        try {//Mony: le digo q yo como cliente puedo mandar
+        try {//le digo q yo como cliente puedo mandar
             EntradaSalida.mostrarMensaje("Cliente UDP listo para mandar...\n");
 
             // crear teclado
@@ -69,18 +68,18 @@ public class ClienteEnviaUDP2 extends Thread {
         String mensaje = teclado.readLine();
 
         //CALCULAMOS EL CHECKSUM
-        //Mony: agarramos el texto puro y lo hacemos pedacitos (bytes) para poder contarlo matemáticamente
+        //agarramos el texto puro y lo hacemos pedacitos (bytes) para poder contarlo matemáticamente
         byte[] bytesOriginales = mensaje.getBytes(StandardCharsets.UTF_8);
 
-        //Mony: mandamos esos bytes a la calculadora que hicimos abajo para sacar el total
+        //mandamos esos bytes a la calculadora que hicimos abajo para sacar el total
         long checksum = calcularChecksum(bytesOriginales);
 
-        //Mony: le pego el número de seguridad al final del texto para que viajen juntos. 
+        //le pego el número de seguridad al final del texto para que viajen juntos. 
         // Uso "||" como si fuera una barda para separar el texto del número.
         String mensajeEmpacado = mensaje + "||" + checksum;
 
         // String -> bytes UTF-8
-        //Mony: ahora sí, convierto TODO (mensaje + barda + numero) 
+        //ahora sí, convierto TODO (mensaje + barda + numero) 
         // en un arreglo de bytes para que el socket lo pueda mandar por la red
         byte[] buffer = mensajeEmpacado.getBytes(StandardCharsets.UTF_8);
 
@@ -114,13 +113,13 @@ public class ClienteEnviaUDP2 extends Thread {
     public long calcularChecksum(byte[] datos) {
         long suma = 0;
         
-        //Mony: recorro cada pedacito (byte) del mensaje uno por uno
+        //recorro cada pedacito (byte) del mensaje uno por uno
         for (byte b : datos) {
-            //Mony: Java a veces es raro y le pone signo negativo a los bytes grandes 
-            //Fer: Al hacer el "& 0xFF" lo forzamos a que sea un número positivo limpio de 0 a 255.
+            //Java a veces es raro y le pone signo negativo a los bytes grandes 
+            //Al hacer el "& 0xFF" lo forzamos a que sea un número positivo limpio de 0 a 255.
             suma += (b & 0xFF); 
         }
-        //Mony: regreso el total de la suma para pegarlo al mensaje
+        //regreso el total de la suma para pegarlo al mensaje
         return suma;
     }
 }

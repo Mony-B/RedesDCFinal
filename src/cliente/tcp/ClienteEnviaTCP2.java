@@ -17,7 +17,7 @@ public class ClienteEnviaTCP2 extends Thread {
         this.SERVER = servidor;
         this.archivoAEnviar = archivo;
         this.areaChatUI = areaChatUI;
-        // Primitiva de CONNECT, abre canal directo con el server por TCP
+        // Abre canal directo con el server por TCP
         this.socket = new Socket(SERVER, PUERTO_SERVER);
     }
 
@@ -52,7 +52,7 @@ public class ClienteEnviaTCP2 extends Thread {
             out.writeLong(archivoAEnviar.length());
 
             FileInputStream fis = new FileInputStream(archivoAEnviar);
-            byte[] buffer = new byte[4096]; // El carrito de 4KB para ir cargando los bytes
+            byte[] buffer = new byte[4096]; // donde cargamos los bytes
             int bytesLeidos;
             
             long totalBytes = archivoAEnviar.length();
@@ -103,7 +103,7 @@ public class ClienteEnviaTCP2 extends Thread {
         }
     }
 
-    // imprime los textos en el area de texto de la pantalla visual
+    // imprimimos los textos en el área de texto de la pantalla 
     private void mostrarEnChat(String texto) {
         if (areaChatUI != null) {
             areaChatUI.append(texto);

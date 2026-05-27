@@ -38,7 +38,7 @@ public class ClienteEscuchaUDP2 extends Thread {
                             ejecutando = false;
                         } else if (!mensaje.startsWith("ERROR")) {
                             // Imprimimos en la interfaz gráfica
-                            mostrarEnChat("Fer: " + mensaje + "\n");
+                            mostrarEnChat("Fer: " + mensaje + "\n"); //aquí en la lap d Mony dice Fer y en la de Fer dice Mony
                         }
                     }
                 }
@@ -83,7 +83,7 @@ public class ClienteEscuchaUDP2 extends Thread {
             long checksumCalculado = calcularChecksum(textoReal.getBytes(StandardCharsets.UTF_8));
             
             if (checksumCalculado == checksumRecibido) {
-                // Si cuadran los números, mandamos el texto limpio
+                // Si coinciden los números, mandamos el texto limpio
                 mensajeObj.setMensaje(textoReal);
                 mostrarEnChat("[Checksum Validado] "); 
             } else {

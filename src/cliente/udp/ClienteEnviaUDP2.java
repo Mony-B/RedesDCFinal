@@ -36,7 +36,7 @@ public class ClienteEnviaUDP2 extends Thread {
             while (ejecutando) {
                 Mensaje mensajeObj = enviaMensaje(teclado);
 
-                // salir elegantemente
+                // salir elegantemente xd
                 if (mensajeObj.getMensaje().equalsIgnoreCase("fin")) {
                     EntradaSalida.mostrarMensaje("Finalizando envío UDP...\n");
                     ejecutando = false;
@@ -74,12 +74,12 @@ public class ClienteEnviaUDP2 extends Thread {
         //mandamos esos bytes a la calculadora que hicimos abajo para sacar el total
         long checksum = calcularChecksum(bytesOriginales);
 
-        //le pego el número de seguridad al final del texto para que viajen juntos. 
-        // Uso "||" como si fuera una barda para separar el texto del número.
+        //le pego el número de seguridad al final del texto para que viajen juntos
+        // Uso "||" como si fuera una bardita para separar el texto del número
         String mensajeEmpacado = mensaje + "||" + checksum;
 
         // String -> bytes UTF-8
-        //ahora sí, convierto TODO (mensaje + barda + numero) 
+        //ahora sí, convierto TODO (mensaje + bardita + numero) 
         // en un arreglo de bytes para que el socket lo pueda mandar por la red
         byte[] buffer = mensajeEmpacado.getBytes(StandardCharsets.UTF_8);
 

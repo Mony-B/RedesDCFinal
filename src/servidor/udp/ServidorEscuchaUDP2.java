@@ -31,7 +31,7 @@ public class ServidorEscuchaUDP2 extends Thread {
                     // recibir datagrama y validar el checksum internamente
                     Mensaje mensajeObj = recibeMensaje();
                     
-                    // Nota: Aquí ya no llamamos a procesaMensaje ni enviaMensaje.
+                    // Aquí ya no llamamos a procesaMensaje ni enviaMensaje.
                     // El servidor solo escucha e imprime, el usuario responderá usando su propio ClienteEnviaUDP2.
                 }
                 catch (SocketTimeoutException e) {
@@ -59,10 +59,9 @@ public class ServidorEscuchaUDP2 extends Thread {
         // buffer recepción
         byte[] buffer = new byte[MAX_BUFFER];
 
-        //Datagrama
         DatagramPacket paquete = new DatagramPacket( buffer, buffer.length);
 
-        // Se queda bloqueante en espera
+        // Se queda bloqueado en espera
         socket.receive(paquete);
 
         // convertir bytes a cadena String
@@ -70,7 +69,7 @@ public class ServidorEscuchaUDP2 extends Thread {
         String mensajeRecibido = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
 
         // corto el texto justo donde encuentre las barritas "||" para separar el chisme de la prueba matemática
-        // Ojo, en Java las barritas se escapan con doble diagonal invertida (\\) porque el símbolo "|" por sí solo significa "OR" lógico.
+        //las barritas se quedan con doble diagonal invertida (\\) porque el símbolo "|"  solo significa "OR" lógico y pues no
         String[] partes = mensajeRecibido.split("\\|\\|"); 
 
         // me aseguro de que el mensaje sí se partió en 2 pedazos (el texto y el número)
@@ -82,10 +81,10 @@ public class ServidorEscuchaUDP2 extends Thread {
             // yo como servidor no confío, así que hago mi propia suma matemática con el texto que me llegó a ver si es cierto
             long checksumMio = calcularChecksum(mensajeReal.getBytes(StandardCharsets.UTF_8));
             
-            // el momento de la verdad, comparamos si mi suma da exactamente lo mismo que la tuya
+            // lo más importante comparamos si mi suma da exactamente lo mismo que la tuya
             if (checksumMio == checksumDelCliente) {
                 
-                mensajeObj.setMensaje(mensajeReal); // Todo chido, guardo el mensaje limpio para mostrarlo
+                mensajeObj.setMensaje(mensajeReal); // Todo bien, tons guardo el mensaje limpio para mostrarlo
                 System.out.println("Checksum validado: El mensaje está completo y todo bieeen.");
                 
             } else {

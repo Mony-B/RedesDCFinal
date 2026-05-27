@@ -31,15 +31,15 @@ public class InterfazChat extends JFrame {
     private File archivoSeleccionado;
 
     // --- CONFIG RED ---
-    private final String SERVER_IP = "127.0.0.1"; 
+    private final String SERVER_IP = "26.190.167.15"; 
     private final int SERVER_PUERTO = 50000;       
 
     private DatagramSocket socketUDP;
     private ClienteEscuchaUDP2 hiloEscucha;
 
     public InterfazChat() {
-        setTitle("Sala de Chat - Conexión UDP/TCP");
-        setSize(480, 640); // Altura cómoda para la vista dividida permanente
+        setTitle("Sala de Chat - Conexión UDP/TCP - Mony y Fer");
+        setSize(480, 640);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -80,7 +80,7 @@ public class InterfazChat extends JFrame {
         
         JSplitPane divisorConsolas = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollPaneChat, scrollPaneMonitoreo);
         divisorConsolas.setDividerLocation(260); 
-        divisorConsolas.setDividerSize(4);       // Línea divisoria muy sutil
+        divisorConsolas.setDividerSize(4);       
         divisorConsolas.setBorder(BorderFactory.createEmptyBorder());
 
 
@@ -98,8 +98,7 @@ public class InterfazChat extends JFrame {
         barraTituloMonitoreo.add(tituloMonitoreo, BorderLayout.WEST);
 
         panelMonitoreoCompleto.add(barraTituloMonitoreo, BorderLayout.NORTH);
-        panelMonitoreoCompleto.add(divisorConsolas, BorderLayout.CENTER); // Inserta el panel dividido con tus variables
-
+        panelMonitoreoCompleto.add(divisorConsolas, BorderLayout.CENTER); 
         panelPrincipal.add(panelMonitoreoCompleto, BorderLayout.CENTER);
 
         // --- PANEL INFERIOR  ---

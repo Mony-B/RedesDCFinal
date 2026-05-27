@@ -8,9 +8,9 @@ public  class ClienteTCP{
         SERVER=servidor;
         PUERTO_SERVER=puertoS;
     }
-    public void inicia()throws Exception{
-        ClienteEnviaTCP2 clienteTCP= new ClienteEnviaTCP2(SERVER,PUERTO_SERVER);
-        
-        clienteTCP.start(); //run
-    }
+    public void inicia() throws Exception {
+    // Le pasamos un File vacío y un JTextArea vacío directamente en los parámetros
+    ClienteEnviaTCP2 clienteTCP = new ClienteEnviaTCP2(SERVER, PUERTO_SERVER, new java.io.File(""), new javax.swing.JTextArea());
+    clienteTCP.start();
+}
 }

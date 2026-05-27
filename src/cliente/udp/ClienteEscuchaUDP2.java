@@ -2,96 +2,125 @@ package cliente.udp;
 
 import datos.EntradaSalida;
 import datos.Mensaje;
-
+import javax.swing.JTextArea; 
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
 public class ClienteEscuchaUDP2 extends Thread {
     protected final int PUERTO_CLIENTE;
-    protected DatagramSocket socket; //socket del cliente
+    protected DatagramSocket socket; 
     private static final int MAX_BUFFER = 1024;
-    private volatile boolean ejecutando = true; // esta es la misma q del envia, volatil es que: decirle q hay 2 hilos q comparten una variable
+    private volatile boolean ejecutando = true; 
+    
+    private JTextArea areaChatUI; 
 
-    public ClienteEscuchaUDP2(DatagramSocket socketNuevo) {
+    public ClienteEscuchaUDP2(DatagramSocket socketNuevo, JTextArea areaChatUI) {
         socket = socketNuevo;
-        PUERTO_CLIENTE =socket.getLocalPort(); // Mony: aquí saca el puerto aleatorio
+        PUERTO_CLIENTE = socket.getLocalPort(); 
+        this.areaChatUI = areaChatUI; 
     }
 
-    @Override //invocan al run, cuando se crea el socket la IP se saca automática
+    @Override 
     public void run() {
-        try { //esto para q el usuario vea en la pantalla
-            EntradaSalida.mostrarMensaje( "Cliente UDP escuchando en puerto "+ PUERTO_CLIENTE + "\n");
+        try { 
+            mostrarEnChat("[Sistema]: Escuchando mensajes UDP en el puerto " + PUERTO_CLIENTE + "\n");
 
             while (ejecutando) {
-                try { //este es el método que nos interesa, está dentro del ciclo infinito
+                try { 
                     Mensaje mensajeObj = recibeMensaje();
-                    //es un agrupador
-                    String mensaje = mensajeObj.getMensaje();
+                    
+                    // Si el mensaje viene bien, lo mostramos
+                    if (mensajeObj != null && mensajeObj.getMensaje() != null) {
+                        String mensaje = mensajeObj.getMensaje();
 
-                    // protocolo simple
-                    if (mensaje.equalsIgnoreCase("fin")) {
-                        EntradaSalida.mostrarMensaje("Servidor finalizó comunicación\n");
-                        ejecutando = false;
+                        if (mensaje.equalsIgnoreCase("fin")) {
+                            mostrarEnChat("[Sistema]: El otro usuario se desconectó.\n");
+                            ejecutando = false;
+                        } else if (!mensaje.startsWith("ERROR")) {
+                            // Imprimimos en la interfaz gráfica
+                            mostrarEnChat("Fer: " + mensaje + "\n"); //aquí en la lap d Mony dice Fer y en la de Fer dice Mony
+                        }
                     }
                 }
-                catch (SocketTimeoutException e) {
-                    EntradaSalida.mostrarMensaje("Esperando mensajes UDP...\n");
-                }
-                catch (SocketException e) { //cuando el socket está cerrado marca esta excepción
+                catch (SocketTimeoutException e) { }
+                catch (SocketException e) { 
                     if (socket.isClosed()) {
-                        EntradaSalida.mostrarMensaje("Socket UDP cerrado\n");
-                    }
-                    else {
-                        EntradaSalida.mostrarMensaje("Error de socket: "+ e.getMessage() + "\n");
+                        mostrarEnChat("[Sistema]: Socket cerrado.\n");
                     }
                     ejecutando = false;
                 }
                 catch (Exception e) {
-                    EntradaSalida.mostrarMensaje(ejecutando +" Error recibiendo mensaje: "+ e.getMessage() + "\n");
+                    mostrarEnChat("Error recibiendo mensaje: " + e.getMessage() + "\n");
                 }
             }
         }
         catch (Exception e) {
-            System.err.println("Error cliente UDP: "+ e.getMessage());
+            System.err.println("Error cliente UDP: " + e.getMessage());
         }
         finally {
             if (socket != null && !socket.isClosed()) {
-                socket.close(); //cerrar socket
+                socket.close(); 
             }
-            EntradaSalida.mostrarMensaje( "Cliente UDP finalizado\n");
         }
     }
 
     private Mensaje recibeMensaje() throws Exception {
-
         Mensaje mensajeObj = new Mensaje();
+        byte[] buffer = new byte[MAX_BUFFER]; 
+        DatagramPacket paquete = new DatagramPacket(buffer, buffer.length); 
 
-        // buffer recepción
-        byte[] buffer = new byte[MAX_BUFFER]; //MONY: guardamos en una variable de tipo BYTE
+        socket.receive(paquete); 
 
-        DatagramPacket paquete = new DatagramPacket(buffer,buffer.length); //MONY: creamos un PDU y aquí se guarda lo q recibimos
+        String mensajeRecibido = new String(paquete.getData(), 0, paquete.getLength(), StandardCharsets.UTF_8);
+        
+        // --- LÓGICA DEL CHECKSUM DIRECTO EN LA INTERFAZ ---
+        String[] partes = mensajeRecibido.split("\\|\\|"); 
 
-        // Se queda bloqueante recibiendo
-        socket.receive(paquete); //MONY:De aquí lo recibimos, lo llenamos
+        if (partes.length == 2) {
+            String textoReal = partes[0]; 
+            long checksumRecibido = Long.parseLong(partes[1].trim()); 
+            
+            long checksumCalculado = calcularChecksum(textoReal.getBytes(StandardCharsets.UTF_8));
+            
+            if (checksumCalculado == checksumRecibido) {
+                // Si coinciden los números, mandamos el texto limpio
+                mensajeObj.setMensaje(textoReal);
+                mostrarEnChat("[Checksum Validado] "); 
+            } else {
+                mostrarEnChat("[Alerta]: Un mensaje se corrompió en la red y fue descartado.\n");
+                mensajeObj.setMensaje("ERROR");
+            }
+        } else {
+            // Si llega sin barras, lo pasamos tal cual (por seguridad)
+            mensajeObj.setMensaje(mensajeRecibido);
+        }
 
-        // bytes a String correctamente
-        String mensaje = new String(paquete.getData(),0, paquete.getLength(), StandardCharsets.UTF_8);
-        mensajeObj.setMensaje(mensaje);
         mensajeObj.setAddressServidor(paquete.getAddress());
         mensajeObj.setPuertoServidor(paquete.getPort());
-
-        EntradaSalida.mostrarMensaje("Mensaje recibido \"" + mensajeObj.getMensaje()
-                + "\" de servidor " + mensajeObj.getAddressServidor()+ ":"
-                + mensajeObj.getPuertoServidor() + "\n");
 
         return mensajeObj;
     }
 
-    // detener hilo manualmente
+    private void mostrarEnChat(String texto) {
+        EntradaSalida.mostrarMensaje(texto); 
+        if (areaChatUI != null) {
+            areaChatUI.append(texto); 
+            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength()); 
+        }
+    }
+
     public void detener() {
         ejecutando = false;
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
+    }
+
+    private long calcularChecksum(byte[] datos) {
+        long suma = 0;
+        for (byte b : datos) {
+            suma += (b & 0xFF); 
+        }
+        return suma;
     }
 }

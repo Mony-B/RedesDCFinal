@@ -1,35 +1,39 @@
 package cliente.tcp;
 
-import datos.EntradaSalida;
-import java.net.*;
+import javax.swing.JTextArea;
 import java.io.*;
-import javax.swing.JFileChooser; 
+import java.net.*;
 
 public class ClienteEnviaTCP2 extends Thread {
     protected Socket socket; 
     protected final int PUERTO_SERVER;
     protected final String SERVER;
+    private File archivoAEnviar;
+    private JTextArea areaChatUI; 
 
-    public ClienteEnviaTCP2(String servidor, int puertoS) throws Exception {
-        PUERTO_SERVER = puertoS;
-        SERVER = servidor;
-        socket = new Socket(SERVER, PUERTO_SERVER);
+    // constructor para recibir datos de la red, el archivo y la ventana
+    public ClienteEnviaTCP2(String servidor, int puertoS, File archivo, JTextArea areaChatUI) throws Exception {
+        this.PUERTO_SERVER = puertoS;
+        this.SERVER = servidor;
+        this.archivoAEnviar = archivo;
+        this.areaChatUI = areaChatUI;
+        // Abre canal directo con el server por TCP
+        this.socket = new Socket(SERVER, PUERTO_SERVER);
     }
 
     @Override
     public void run() {
         DataOutputStream out = null;
         try {
-            EntradaSalida.mostrarMensaje("Cliente conectado con servidor " + socket.getInetAddress()
+            mostrarEnChat("[TCP]: Conectado con servidor de archivos " + socket.getInetAddress()
                     + ":" + socket.getPort() + "\n");
 
+            // Creamos flujo de salida para mandar los datos al socket
             out = new DataOutputStream(socket.getOutputStream());
-
-            // MONY/FER: Aquí arranca la selección visual del archivo
             enviaArchivo(out);
 
         } catch (Exception e) {
-            System.err.println("Error cliente: " + e.getMessage());
+            mostrarEnChat("[Error TCP]: " + e.getMessage() + "\n");
         } finally {
             try {
                 if (out != null) out.close();
@@ -41,94 +45,69 @@ public class ClienteEnviaTCP2 extends Thread {
     }
 
     private void enviaArchivo(DataOutputStream out) throws Exception {
-        // MONY/FER: Se crea el objeto para abrir la ventana exploradora de archivos de Windows/Mac
-        JFileChooser selector = new JFileChooser();
-        selector.setDialogTitle("Selecciona el archivo para enviar");
-        
-        // Abre la ventana y guarda la accion del usuario (si le dio Aceptar o Cancelar)
-        int resultado = selector.showOpenDialog(null);
+        // validamos q el archivo si exista para q no truene
+        if (archivoAEnviar != null && archivoAEnviar.exists()) {
+            // Mandamos primero los datos basicos del archivo q va a llegar
+            out.writeUTF(archivoAEnviar.getName());
+            out.writeLong(archivoAEnviar.length());
 
-        // Si el usuario selecciono un archivo y le dio "Abrir"
-        if (resultado == JFileChooser.APPROVE_OPTION) {
-            // Obtenemos la ruta absoluta del archivo seleccionado
-            File archivo = selector.getSelectedFile(); 
-
-            // PRIMERO: Le avisamos al servidor como se llama el archivo y cuanto pesa en total
-            out.writeUTF(archivo.getName());
-            out.writeLong(archivo.length());
-
-            // Preparamos el flujo para leer el archivo desde el disco duro
-            FileInputStream fis = new FileInputStream(archivo);
-            
-            // El buffer es el  que transporta los bytes en bloques de 4KB para no saturar la RAM
-            byte[] buffer = new byte[4096];
+            FileInputStream fis = new FileInputStream(archivoAEnviar);
+            byte[] buffer = new byte[4096]; // donde cargamos los bytes
             int bytesLeidos;
             
-            long totalBytes = archivo.length();
-            long bytesEnviados = 0;
+            long totalBytes = archivoAEnviar.length();
+            long bytesEnviados = 0; // contador de bytes mandados a la red
+            long tiempoInicio = System.currentTimeMillis(); // tiempo inicial para la latencia
             
-            // Tomamos el tiempo exacto antes de mandar el primer byte para calcular la latencia
-            long tiempoInicio = System.currentTimeMillis();
-            
-            EntradaSalida.mostrarMensaje("Iniciando envio de: " + archivo.getName() + " (" + totalBytes + " bytes)...\n");
+            mostrarEnChat("[TCP]: Iniciando envío de: " + archivoAEnviar.getName() + " (" + totalBytes + " bytes)...\n");
 
-            // SEGUNDO: Ciclo que lee el archivo por pedazos y los empuja al socket
+            // El ciclo lee el archivo en pedacitos y los avienta al flujo
             while ((bytesLeidos = fis.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesLeidos); // Escribe el pedazo en la red
-                bytesEnviados += bytesLeidos; // Actualizamos el contador de lo que ya se fue
+                out.write(buffer, 0, bytesLeidos); 
+                bytesEnviados += bytesLeidos; 
 
-                // TERCERO: Matematicas en tiempo real (Punto 3 de la rubrica)
                 long tiempoActual = System.currentTimeMillis();
                 long tiempoTranscurridoMs = tiempoActual - tiempoInicio;
                 
-                // Solo validamos que el tiempo sea mayor a 0 para no dividir entre cero
+                // si ya paso tiempo empezamos a calcular las tasas
                 if (tiempoTranscurridoMs > 0) {
-                    // Formula: (Bytes enviados pasados a bits) / (Milisegundos pasados a segundos)
+                    // Formula de bits por segundo multiplicando por 8.0
                     double velocidadBps = (bytesEnviados * 8.0) / (tiempoTranscurridoMs / 1000.0);
-                    
-                    // Restamos el total menos lo enviado para saber cuanto falta
                     long bytesRestantes = totalBytes - bytesEnviados;
-                    
-                    // Estimacion de tiempo restante usando la velocidad actual
+                    // calcula cuanto falta con la velocidad actual
                     double tiempoRestanteSeg = (bytesRestantes * 8.0) / velocidadBps;
-                    
-                    // Regla de 3 para sacar el porcentaje de progreso
                     double progreso = (bytesEnviados * 100.0) / totalBytes;
 
-                    // Imprime los calculos dinamicos en cada vuelta del ciclo
-                    EntradaSalida.mostrarMensaje(
-                        String.format(">> Progreso: %.1f%% \n Tiempo Transcurrido: %.3fs \n Tiempo Restante estimado: %.1fs \n Velocidad: %.2f bps\n", 
-                        progreso, 
-                        (tiempoTranscurridoMs / 1000.0), 
-                        tiempoRestanteSeg, 
-                        velocidadBps)
-                    );
+                    mostrarEnChat(String.format(">> Progreso: %.1f%% | T. Transcurrido: %.1fs | T. Restante: %.1fs | Velocidad: %.2f bps\n", 
+                            progreso, (tiempoTranscurridoMs / 1000.0), tiempoRestanteSeg, velocidadBps));
                 }
             }
-            // Forzamos que se vacie el tubo de red por si quedó algúuun byte atorado
-            out.flush();
+            out.flush(); // vacia el flujo para q se mande todo completo
             
-            // Tomamos el tiempo final justo cuando termina el ciclo
-            long tiempoFin = System.currentTimeMillis();
-            fis.close(); // Cerramos la lectura del disco
+            long tiempoFin = System.currentTimeMillis(); // tiempo final cuando termina de enviar
+            fis.close(); 
             
-            // CUARTO: Resumen final de la transferencia
+            // sacamos el calculo final de latencia y velocidad promedio
             long latenciaTotalMs = tiempoFin - tiempoInicio;
             double latenciaTotalSeg = latenciaTotalMs / 1000.0;
-            
-            // Trampita por si se envio muy rapido (casi en 0s) y evitar errores de division
             if (latenciaTotalSeg == 0) latenciaTotalSeg = 0.001; 
 
-            // Tasa de transferencia final promedio
             double bpsFinal = (totalBytes * 8.0) / latenciaTotalSeg;
 
-            EntradaSalida.mostrarMensaje("\nTransferencia completada!\n");
-            EntradaSalida.mostrarMensaje("Latencia (Tiempo total): " + latenciaTotalSeg + " segundos\n");
-            EntradaSalida.mostrarMensaje("Velocidad promedio: " + String.format("%.2f", bpsFinal) + " bps\n\n");
+            mostrarEnChat("\nTransferencia completada correctamente!\n");
+            mostrarEnChat("Latencia Total: " + latenciaTotalSeg + " segundos\n");
+            mostrarEnChat("Tasa de transferencia: " + String.format("%.2f", bpsFinal) + " bps\n\n");
             
         } else {
-            // Si se cerró la ventanita sin elegir nada
-            EntradaSalida.mostrarMensaje("Envio cancelado por el usuario.\n");
+            mostrarEnChat("[TCP Error]: El archivo no existe o no fue seleccionado.\n");
+        }
+    }
+
+    // imprimimos los textos en el área de texto de la pantalla 
+    private void mostrarEnChat(String texto) {
+        if (areaChatUI != null) {
+            areaChatUI.append(texto);
+            areaChatUI.setCaretPosition(areaChatUI.getDocument().getLength());
         }
     }
 }
